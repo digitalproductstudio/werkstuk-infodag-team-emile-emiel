@@ -222,7 +222,7 @@ function drawLandingPage() {
   canvasCtx.fillStyle = "#FFFFFF";
   canvasCtx.font = "bold 36px Arial";
   canvasCtx.textAlign = "center";
-  canvasCtx.fillText("Connect Four Gesture Game", canvasWidth / 2, canvasHeight / 4);
+  canvasCtx.fillText("4 The Win", canvasWidth / 2, canvasHeight / 4);
   
   // Instructions
   canvasCtx.font = "24px Arial";

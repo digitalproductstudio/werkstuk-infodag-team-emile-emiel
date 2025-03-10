@@ -253,8 +253,9 @@ function handleGameState(results: any, deltaTime: number) {
       handleDiscGrab,
       handleDiscRelease,
       handleDiscMove,
-      handlePeaceSign, // Add peace sign handler for bomb selection
-      canvasCtx
+      handlePeaceSign,
+      canvasCtx,
+      currentPlayer // Pass the current player to the function
     );
   }
 

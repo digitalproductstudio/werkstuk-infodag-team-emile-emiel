@@ -4,7 +4,7 @@ import {
   DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
-import { GameBoard, GameConfig } from './types';
+import { GameBoard, GameConfig, Player } from './types';
 import { getBoardStartX } from './gameLogic';
 
 let gestureRecognizer: GestureRecognizer;
@@ -86,35 +86,49 @@ export async function processVideoFrame(video: HTMLVideoElement, timestamp: numb
   return null;
 }
 
-//**
-/* Draw hand landmarks on canvas, mirroring them to match the mirrored video
-*/
+/**
+ * Draw hand landmarks on canvas, mirroring them to match the mirrored video
+ * Using player-specific colors for the hand tracking
+ */
 export function drawHandLandmarks(
- canvasCtx: CanvasRenderingContext2D, 
- landmarks: any[]
+  canvasCtx: CanvasRenderingContext2D, 
+  landmarks: any[],
+  currentPlayer: Player // Add currentPlayer parameter
 ) {
- if (!landmarks) return;
- 
- const drawingUtils = new DrawingUtils(canvasCtx);
- 
- // Save the current canvas state
- canvasCtx.save();
- 
- // Mirror the canvas context horizontally to match the video
- canvasCtx.scale(-1, 1);
- canvasCtx.translate(-canvasCtx.canvas.width, 0);
- 
- // Draw the landmarks with the mirrored context
- drawingUtils.drawConnectors(
-   landmarks,
-   GestureRecognizer.HAND_CONNECTIONS,
-   { color: "#00FF00", lineWidth: 5 }
- );
- 
- drawingUtils.drawLandmarks(landmarks, { color: "#FF0000", lineWidth: 2 });
- 
- // Restore the canvas state
- canvasCtx.restore();
+  if (!landmarks) return;
+  
+  const drawingUtils = new DrawingUtils(canvasCtx);
+  
+  // Set colors based on current player
+  let landmarkColor: string;
+  let connectorColor: string;
+  
+  if (currentPlayer === 1) { // Player Orange
+    landmarkColor = "#EF7D00"; // Orange for tracking points
+    connectorColor = "#E7B481"; // Light orange for connector lines
+  } else { // Player Blue
+    landmarkColor = "#009AD4"; // Blue for tracking points
+    connectorColor = "#A4CED7"; // Light blue for connector lines
+  }
+  
+  // Save the current canvas state
+  canvasCtx.save();
+  
+  // Mirror the canvas context horizontally to match the video
+  canvasCtx.scale(-1, 1);
+  canvasCtx.translate(-canvasCtx.canvas.width, 0);
+  
+  // Draw the landmarks with the mirrored context
+  drawingUtils.drawConnectors(
+    landmarks,
+    GestureRecognizer.HAND_CONNECTIONS,
+    { color: connectorColor, lineWidth: 5 }
+  );
+  
+  drawingUtils.drawLandmarks(landmarks, { color: landmarkColor, lineWidth: 2 });
+  
+  // Restore the canvas state
+  canvasCtx.restore();
 }
 
 /**
@@ -185,7 +199,8 @@ export function processHandGestures(
   onRelease: (col: number) => void,
   onMove: (x: number, y: number, col: number) => void,
   onPeaceSign: () => void, // Add peace sign handler
-  canvasCtx: CanvasRenderingContext2D
+  canvasCtx: CanvasRenderingContext2D,
+  currentPlayer: Player // Add currentPlayer parameter
 ) {
   // Only process if we have valid, current results with landmarks
   if (!results || !results.landmarks || !results.landmarks.length) {
@@ -213,8 +228,8 @@ export function processHandGestures(
   
   // Draw hand landmarks for all detected hands
   for (const landmarks of results.landmarks) {
-    // Draw hand landmarks
-    drawHandLandmarks(canvasCtx, landmarks);
+    // Draw hand landmarks with current player colors
+    drawHandLandmarks(canvasCtx, landmarks, currentPlayer);
 
     // Get the palm center position
     const palmCenter = calculatePalmCenter(landmarks, canvasWidth, canvasHeight);

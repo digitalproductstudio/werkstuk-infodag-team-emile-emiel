@@ -34,7 +34,7 @@ function isWinningPosition(row: number, col: number): boolean {
 }
 
 /**
- * Draw the landing page with progress bar
+ * Draw the landing page with white text and black outline
  */
 export function drawLandingPage(
   canvasCtx: CanvasRenderingContext2D,
@@ -49,15 +49,22 @@ export function drawLandingPage(
   canvasCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
   canvasCtx.fillRect(0, 0, canvasWidth, canvasHeight);
   
-  // Draw title
-  canvasCtx.fillStyle = "#FFFFFF";
-  canvasCtx.font = "bold 36px Arial";
+  // Draw title with white text and black outline
   canvasCtx.textAlign = "center";
-  canvasCtx.fillText("4 THE WIN", canvasWidth / 2, canvasHeight / 4);
   
-  // Start instructions
-  canvasCtx.font = "24px Arial";
-  canvasCtx.fillText("Houd je duim 👍 omhoog voor 2 seconden om te beginnen", canvasWidth / 2, canvasHeight / 3);
+  // Title
+  canvasCtx.font = "bold 48px 'Montserrat', sans-serif";
+  canvasCtx.strokeStyle = "#000000";
+  canvasCtx.lineWidth = 3;
+  canvasCtx.strokeText("4 THE WIN", canvasWidth / 2, canvasHeight / 3);
+  canvasCtx.fillStyle = "#FFFFFF";
+  canvasCtx.fillText("4 THE WIN", canvasWidth / 2, canvasHeight / 3);
+  
+  // Start instructions with white text and black outline
+  canvasCtx.font = "28px 'Montserrat', sans-serif";
+  canvasCtx.lineWidth = 2;
+  canvasCtx.strokeText("Houd je duim 👍 omhoog voor 2 seconden om te beginnen", canvasWidth / 2, canvasHeight / 2 - 50);
+  canvasCtx.fillText("Houd je duim 👍 omhoog voor 2 seconden om te beginnen", canvasWidth / 2, canvasHeight / 2 - 50);
   
   // Progress bar background
   const barWidth = canvasWidth * 0.6;
@@ -72,51 +79,14 @@ export function drawLandingPage(
   canvasCtx.fillStyle = "#00FF00";
   canvasCtx.fillRect(barX, barY, progressBarWidth * barWidth, barHeight);
   
-  // Progress percentage
+  // Progress percentage - black text for better contrast on green bar
   canvasCtx.fillStyle = "#000000";
-  canvasCtx.font = "16px Arial";
+  canvasCtx.font = "16px 'Montserrat', sans-serif";
   canvasCtx.fillText(`${Math.floor(progressBarWidth * 100)}%`, barX + barWidth / 2, barY + barHeight / 2 + 5);
   
-  // Game instructions - added below the progress bar
-  canvasCtx.fillStyle = "#FFFFFF";
-  canvasCtx.font = "20px Arial";
-  
-  // How to play section
-  const instructionsY = barY + barHeight + 40;
-  canvasCtx.font = "bold 22px Arial";
-  canvasCtx.fillText("Hoe te Spelen:", canvasWidth / 2, instructionsY);
-  
-  // Game controls
-  canvasCtx.font = "18px Arial";
-  canvasCtx.fillText("• Maak een GESLOTEN VUIST ✊ om een schijf te pakken", canvasWidth / 2, instructionsY + 30);
-  canvasCtx.fillText("• Beweeg je hand om de schijf boven een kolom te plaatsen", canvasWidth / 2, instructionsY + 55);
-  canvasCtx.fillText("• Gebruik een OPEN HANDPALM 🖐️ om de schijf los te laten", canvasWidth / 2, instructionsY + 80);
-  canvasCtx.fillText("• Gebruik PEACE-teken ✌️ om tussen schijf en bom te wisselen", canvasWidth / 2, instructionsY + 105);
-  
-  // Game objective
-  canvasCtx.font = "bold 22px Arial";
-  canvasCtx.fillText("Doel:", canvasWidth / 2, instructionsY + 145);
-  
-  canvasCtx.font = "18px Arial";
-  canvasCtx.fillText("Verbind 4 schijven van jouw kleur op een rij - horizontaal, verticaal of diagonaal", canvasWidth / 2, instructionsY + 175);
-  
-  // Power-up info
-  canvasCtx.font = "bold 22px Arial";
-  canvasCtx.fillText("Power-up:", canvasWidth / 2, instructionsY + 215);
-  
-  canvasCtx.font = "18px Arial";
-  canvasCtx.fillText("Elke speler heeft 1 bom die alle aangrenzende schijven laat exploderen", canvasWidth / 2, instructionsY + 245);
-  
-  // Players required info
-  canvasCtx.font = "bold 22px Arial";
-  canvasCtx.fillText("Spelers:", canvasWidth / 2, instructionsY + 285);
-  
-  canvasCtx.font = "18px Arial";
-  canvasCtx.fillText("Dit is een spel voor 2 spelers - Rood (rechterkant) vs Blauw (linkerkant)", canvasWidth / 2, instructionsY + 315);
-
   // Draw QR code in bottom right corner
-  // Set title for QR code
-  canvasCtx.font = "bold 16px Arial";
+  // Set title for QR code with white text and black outline
+  canvasCtx.font = "bold 16px 'Montserrat', sans-serif";
   canvasCtx.textAlign = "center";
   
   // QR code dimensions and position
@@ -126,6 +96,8 @@ export function drawLandingPage(
   const qrY = canvasHeight - qrSize - qrPadding;
   
   // Draw QR code title above the QR code
+  canvasCtx.lineWidth = 1.5;
+  canvasCtx.strokeText("Meer info over IMD", qrX + qrSize/2, qrY - 10);
   canvasCtx.fillStyle = "#FFFFFF";
   canvasCtx.fillText("Meer info over IMD", qrX + qrSize/2, qrY - 10);
   
@@ -133,12 +105,10 @@ export function drawLandingPage(
   drawQRCode(canvasCtx, qrX, qrY, qrSize);
 
   // Add attribution text at the bottom of the screen
-  canvasCtx.font = "16px Arial";
-  canvasCtx.fillStyle = "#FFFFFF";
-  canvasCtx.textAlign = "center";
+  canvasCtx.font = "16px 'Montserrat', sans-serif";
+  canvasCtx.strokeText("- Gemaakt door Emile Bergers en Emiel Clopterop IMD2 -", canvasWidth / 2, canvasHeight - 20);
   canvasCtx.fillText("- Gemaakt door Emile Bergers en Emiel Clopterop IMD2 -", canvasWidth / 2, canvasHeight - 20);
 }
-
 
 /**
  * Draw the game board
@@ -465,7 +435,7 @@ export function drawAnimatingDisc(
 }
 
 /**
- * Draw game status text
+ * Draw game status text with white text and black outline
  */
 export function drawGameStatus(
   canvasCtx: CanvasRenderingContext2D,
@@ -474,17 +444,29 @@ export function drawGameStatus(
   canvasWidth: number,
   timeLeft?: number
 ): void {
-  canvasCtx.font = "30px Arial";
-  canvasCtx.fillStyle = "black";
+  canvasCtx.font = "30px 'Montserrat', sans-serif";
   canvasCtx.textAlign = "center";
   
   if (gameOver) {
     // The winner is the opposite of the current player since we already switched
     const winner = currentPlayer === 1 ? 2 : 1;
-    canvasCtx.font = "50px Arial";
+    canvasCtx.font = "bold 50px 'Montserrat', sans-serif";
     
-    // Set text color based on the winning player (orange or blue)
-    canvasCtx.fillStyle = winner === 1 ? "#ef7d00" : "#009ad4";
+    // White text with black outline for winner announcement
+    canvasCtx.strokeStyle = "#000000";
+    canvasCtx.lineWidth = 3;
+    canvasCtx.strokeText(
+      `Speler ${winner === 1 ? "Oranje" : "Blauw"} wint!${timeLeft ? ` Terug naar startscherm in ${timeLeft}s` : ''}`, 
+      canvasWidth / 2, 
+      60
+    );
+    
+    // Set color based on winning player
+    if (winner === 1) {
+      canvasCtx.fillStyle = "#FFFFFF"; // White for better visibility
+    } else {
+      canvasCtx.fillStyle = "#FFFFFF"; // White for better visibility
+    }
     
     canvasCtx.fillText(
       `Speler ${winner === 1 ? "Oranje" : "Blauw"} wint!${timeLeft ? ` Terug naar startscherm in ${timeLeft}s` : ''}`, 
@@ -492,6 +474,15 @@ export function drawGameStatus(
       60
     );
   } else {
+    // Current player display with white text and black outline
+    canvasCtx.strokeStyle = "#000000";
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeText(
+      `Huidige speler: ${currentPlayer === 1 ? "Oranje" : "Blauw"}`, 
+      canvasWidth / 2, 
+      30
+    );
+    canvasCtx.fillStyle = "#FFFFFF";
     canvasCtx.fillText(
       `Huidige speler: ${currentPlayer === 1 ? "Oranje" : "Blauw"}`, 
       canvasWidth / 2, 
@@ -500,7 +491,13 @@ export function drawGameStatus(
     
     // Show bomb toggle hint if player has bombs available
     if (playerBombs[currentPlayer] > 0) {
-      canvasCtx.font = "16px Arial";
+      canvasCtx.font = "16px 'Montserrat', sans-serif";
+      canvasCtx.lineWidth = 1.5;
+      canvasCtx.strokeText(
+        bombSelected ? "Bom actief! ✌️ om terug te wisselen" : "✌️ om bom te activeren", 
+        canvasWidth / 2, 
+        60
+      );
       canvasCtx.fillText(
         bombSelected ? "Bom actief! ✌️ om terug te wisselen" : "✌️ om bom te activeren", 
         canvasWidth / 2, 

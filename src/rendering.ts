@@ -4,7 +4,8 @@ import {
   ActiveDisc,
   PreviewDisc,
   AnimatingDisc,
-  WinningPosition
+  WinningPosition,
+  Explosion
 } from './types';
 
 import {
@@ -12,7 +13,16 @@ import {
   getBoardStartY
 } from './gameLogic';
 
-import { winningPositions, discRotations } from './gameState';
+import { 
+  winningPositions, 
+  discRotations, 
+  discTypes, 
+  playerBombs, 
+  currentPlayer, 
+  bombSelected,
+  explosions,
+  bombImage
+} from './gameState';
 import { qrCodeImage, arteLogoImage } from './setup';
 
 /**
@@ -81,20 +91,28 @@ export function drawLandingPage(
   canvasCtx.fillText("• Maak een GESLOTEN VUIST ✊ om een schijf te pakken", canvasWidth / 2, instructionsY + 30);
   canvasCtx.fillText("• Beweeg je hand om de schijf boven een kolom te plaatsen", canvasWidth / 2, instructionsY + 55);
   canvasCtx.fillText("• Gebruik een OPEN HANDPALM 🖐️ om de schijf los te laten", canvasWidth / 2, instructionsY + 80);
+  canvasCtx.fillText("• Gebruik PEACE-teken ✌️ om tussen schijf en bom te wisselen", canvasWidth / 2, instructionsY + 105);
   
   // Game objective
   canvasCtx.font = "bold 22px Arial";
-  canvasCtx.fillText("Doel:", canvasWidth / 2, instructionsY + 120);
+  canvasCtx.fillText("Doel:", canvasWidth / 2, instructionsY + 145);
   
   canvasCtx.font = "18px Arial";
-  canvasCtx.fillText("Verbind 4 schijven van jouw kleur op een rij - horizontaal, verticaal of diagonaal", canvasWidth / 2, instructionsY + 150);
+  canvasCtx.fillText("Verbind 4 schijven van jouw kleur op een rij - horizontaal, verticaal of diagonaal", canvasWidth / 2, instructionsY + 175);
+  
+  // Power-up info
+  canvasCtx.font = "bold 22px Arial";
+  canvasCtx.fillText("Power-up:", canvasWidth / 2, instructionsY + 215);
+  
+  canvasCtx.font = "18px Arial";
+  canvasCtx.fillText("Elke speler heeft 1 bom die alle aangrenzende schijven laat exploderen", canvasWidth / 2, instructionsY + 245);
   
   // Players required info
   canvasCtx.font = "bold 22px Arial";
-  canvasCtx.fillText("Spelers:", canvasWidth / 2, instructionsY + 190);
+  canvasCtx.fillText("Spelers:", canvasWidth / 2, instructionsY + 285);
   
   canvasCtx.font = "18px Arial";
-  canvasCtx.fillText("Dit is een spel voor 2 spelers - Rood (rechterkant) vs Blauw (linkerkant)", canvasWidth / 2, instructionsY + 220);
+  canvasCtx.fillText("Dit is een spel voor 2 spelers - Rood (rechterkant) vs Blauw (linkerkant)", canvasWidth / 2, instructionsY + 315);
 
   // Draw QR code in bottom right corner
   // Set title for QR code
@@ -183,6 +201,9 @@ export function drawGameBoard(
         // Get the stored rotation, or default to 0 if not set
         const rotation = discRotations[row][col] || 0;
         
+        // Check if this disc is a bomb
+        const isBomb = discTypes[row][col] === "bomb";
+        
         // Save the canvas state to apply rotation
         canvasCtx.save();
         
@@ -206,8 +227,31 @@ export function drawGameBoard(
         canvasCtx.strokeStyle = "black";
         canvasCtx.stroke();
         
-        // Draw the Arte logo inside the disc
-        drawArteLogoInDisc(canvasCtx, centerX, centerY, discRadius * 0.8);
+        // If it's a bomb, draw the bomb image instead of the Arte logo
+        if (isBomb && bombImage && bombImage.complete) {
+          // Calculate size for the bomb (smaller than the disc)
+          const bombSize = discRadius * 1.6;
+          
+          // Create a clipping path that's the shape of the disc
+          canvasCtx.save();
+          canvasCtx.beginPath();
+          canvasCtx.arc(centerX, centerY, discRadius, 0, 2 * Math.PI);
+          canvasCtx.clip();
+          
+          // Draw the bomb centered in the disc
+          canvasCtx.drawImage(
+            bombImage,
+            centerX - bombSize / 2,
+            centerY - bombSize / 2,
+            bombSize,
+            bombSize
+          );
+          
+          canvasCtx.restore();
+        } else {
+          // Draw the Arte logo inside the disc for normal discs
+          drawArteLogoInDisc(canvasCtx, centerX, centerY, discRadius * 0.8);
+        }
         
         // Add glow effect for winning discs
         if (isWinning) {
@@ -263,6 +307,21 @@ export function drawGameBoard(
     }
   }
   
+  // Draw explosions
+  for (const explosion of explosions) {
+    canvasCtx.beginPath();
+    canvasCtx.arc(explosion.x, explosion.y, explosion.radius, 0, 2 * Math.PI);
+    canvasCtx.fillStyle = `rgba(255, 200, 0, ${explosion.alpha * 0.5})`;
+    canvasCtx.fill();
+    
+    // Draw outer ring
+    canvasCtx.beginPath();
+    canvasCtx.arc(explosion.x, explosion.y, explosion.radius * 0.8, 0, 2 * Math.PI);
+    canvasCtx.strokeStyle = `rgba(255, 100, 0, ${explosion.alpha * 0.8})`;
+    canvasCtx.lineWidth = 3;
+    canvasCtx.stroke();
+  }
+  
   // Restore the context to its original state (resets transparency)
   canvasCtx.restore();
 }
@@ -281,8 +340,30 @@ export function drawActiveDisc(
   canvasCtx.strokeStyle = "black";
   canvasCtx.stroke();
   
-  // Draw the Arte logo inside the active disc
-  drawArteLogoInDisc(canvasCtx, activeDisc.x, activeDisc.y, activeDisc.radius * 0.8);
+  // Draw different images based on disc type
+  if (activeDisc.type === "bomb" && bombImage && bombImage.complete) {
+    const bombSize = activeDisc.radius * 1.6;
+    
+    // Create a clipping path that's the shape of the disc
+    canvasCtx.save();
+    canvasCtx.beginPath();
+    canvasCtx.arc(activeDisc.x, activeDisc.y, activeDisc.radius, 0, 2 * Math.PI);
+    canvasCtx.clip();
+    
+    // Draw the bomb centered in the disc
+    canvasCtx.drawImage(
+      bombImage,
+      activeDisc.x - bombSize / 2,
+      activeDisc.y - bombSize / 2,
+      bombSize,
+      bombSize
+    );
+    
+    canvasCtx.restore();
+  } else {
+    // Draw the Arte logo inside the active disc for normal discs
+    drawArteLogoInDisc(canvasCtx, activeDisc.x, activeDisc.y, activeDisc.radius * 0.8);
+  }
 }
 
 /**
@@ -301,9 +382,34 @@ export function drawPreviewDisc(
   canvasCtx.strokeStyle = "rgba(0, 0, 0, 0.3)";
   canvasCtx.stroke();
   
-  // For the preview disc, we'll apply some transparency to the logo as well
+  // For the preview disc, we'll apply some transparency to the image as well
   canvasCtx.globalAlpha = 0.3;
-  drawArteLogoInDisc(canvasCtx, previewDisc.x, previewDisc.y, previewDisc.radius * 0.8);
+  
+  // Draw different images based on disc type
+  if (previewDisc.type === "bomb" && bombImage && bombImage.complete) {
+    const bombSize = previewDisc.radius * 1.6;
+    
+    // Create a clipping path that's the shape of the disc
+    canvasCtx.save();
+    canvasCtx.beginPath();
+    canvasCtx.arc(previewDisc.x, previewDisc.y, previewDisc.radius, 0, 2 * Math.PI);
+    canvasCtx.clip();
+    
+    // Draw the bomb centered in the disc
+    canvasCtx.drawImage(
+      bombImage,
+      previewDisc.x - bombSize / 2,
+      previewDisc.y - bombSize / 2,
+      bombSize,
+      bombSize
+    );
+    
+    canvasCtx.restore();
+  } else {
+    // Draw the Arte logo inside the preview disc for normal discs
+    drawArteLogoInDisc(canvasCtx, previewDisc.x, previewDisc.y, previewDisc.radius * 0.8);
+  }
+  
   canvasCtx.globalAlpha = 1.0; // Reset alpha
 }
 
@@ -329,8 +435,30 @@ export function drawAnimatingDisc(
   canvasCtx.fill();
   canvasCtx.stroke();
   
-  // Draw the Arte logo inside the animating disc
-  drawArteLogoInDisc(canvasCtx, disc.x, disc.y, disc.radius * 0.8);
+  // Draw different images based on disc type
+  if (disc.type === "bomb" && bombImage && bombImage.complete) {
+    const bombSize = disc.radius * 1.6;
+    
+    // Create a clipping path that's the shape of the disc
+    canvasCtx.save();
+    canvasCtx.beginPath();
+    canvasCtx.arc(disc.x, disc.y, disc.radius, 0, 2 * Math.PI);
+    canvasCtx.clip();
+    
+    // Draw the bomb centered in the disc
+    canvasCtx.drawImage(
+      bombImage,
+      disc.x - bombSize / 2,
+      disc.y - bombSize / 2,
+      bombSize,
+      bombSize
+    );
+    
+    canvasCtx.restore();
+  } else {
+    // Draw the Arte logo inside the animating disc for normal discs
+    drawArteLogoInDisc(canvasCtx, disc.x, disc.y, disc.radius * 0.8);
+  }
   
   // Restore the canvas state
   canvasCtx.restore();
@@ -369,6 +497,16 @@ export function drawGameStatus(
       canvasWidth / 2, 
       30
     );
+    
+    // Show bomb toggle hint if player has bombs available
+    if (playerBombs[currentPlayer] > 0) {
+      canvasCtx.font = "16px Arial";
+      canvasCtx.fillText(
+        bombSelected ? "Bom actief! ✌️ om terug te wisselen" : "✌️ om bom te activeren", 
+        canvasWidth / 2, 
+        60
+      );
+    }
   }
 }
 

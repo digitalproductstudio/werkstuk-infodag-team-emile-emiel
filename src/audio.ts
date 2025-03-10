@@ -1,93 +1,91 @@
-/**
- * Sound effects for the game
- */
-let placeSound: HTMLAudioElement;
-let winSound: HTMLAudioElement;
-let startSound: HTMLAudioElement;
-let grabSound: HTMLAudioElement;
-let isAudioInitialized = false;
+// Audio elements for game sounds
+let placeSound: HTMLAudioElement | null = null;
+let winSound: HTMLAudioElement | null = null;
+let startSound: HTMLAudioElement | null = null;
+let grabSound: HTMLAudioElement | null = null;
+let explosionSound: HTMLAudioElement | null = null;
 
 /**
- * Initialize audio elements and load sound files
+ * Initialize audio elements
  */
 export function initializeAudio(): void {
-  // Create audio elements
-  placeSound = new Audio();
-  winSound = new Audio();
-  startSound = new Audio();
-  grabSound = new Audio();
+  // Create and configure Place Sound
+  placeSound = new Audio('sounds/place.mp3');
+  placeSound.volume = 0.5;
   
-  // Set sources
-  placeSound.src = 'sounds/coin-drop.mp3';
-  winSound.src = 'sounds/marimba-win.mp3';
-  startSound.src = 'sounds/start.mp3';
-  grabSound.src = 'sounds/grab.mp3';
+  // Create and configure Win Sound
+  winSound = new Audio('sounds/win.mp3');
+  winSound.volume = 0.7;
   
-  // Set volume
-  placeSound.volume = 0.6;
-  winSound.volume = 0.8;
-  startSound.volume = 0.7;
-  grabSound.volume = 0.6;
+  // Create and configure Start Sound
+  startSound = new Audio('sounds/start.mp3');
+  startSound.volume = 0.6;
   
-  // Preload the audio files
-  placeSound.load();
-  winSound.load();
-  startSound.load();
-  grabSound.load();
+  // Create and configure Grab Sound
+  grabSound = new Audio('sounds/grab.mp3');
+  grabSound.volume = 0.4;
   
-  isAudioInitialized = true;
-  
-  // Add error handlers
-  placeSound.onerror = () => console.error("Error loading place sound");
-  winSound.onerror = () => console.error("Error loading win sound");
-  startSound.onerror = () => console.error("Error loading start sound");
-  grabSound.onerror = () => console.error("Error loading grab sound");
+  // Create and configure Explosion Sound
+  explosionSound = new Audio('sounds/bomb.mp3');
+  explosionSound.volume = 0.7;
 }
 
 /**
- * Play the disc placement sound
+ * Play disc placement sound
  */
 export function playPlaceSound(): void {
-  if (!isAudioInitialized) return;
-  
-  // Clone and play to allow overlapping sounds
-  const sound = placeSound.cloneNode() as HTMLAudioElement;
-  sound.play().catch(error => {
-    console.warn("Could not play place sound:", error);
-  });
+  if (placeSound) {
+    placeSound.currentTime = 0;
+    placeSound.play().catch(error => {
+      console.error("Error playing place sound:", error);
+    });
+  }
 }
 
 /**
- * Play the win sound
+ * Play win celebration sound
  */
 export function playWinSound(): void {
-  if (!isAudioInitialized) return;
-  
-  winSound.play().catch(error => {
-    console.warn("Could not play win sound:", error);
-  });
+  if (winSound) {
+    winSound.currentTime = 0;
+    winSound.play().catch(error => {
+      console.error("Error playing win sound:", error);
+    });
+  }
 }
 
 /**
- * Play the start sound
+ * Play game start sound
  */
 export function playStartSound(): void {
-  if (!isAudioInitialized) return;
-  
-  startSound.play().catch(error => {
-    console.warn("Could not play start sound:", error);
-  });
+  if (startSound) {
+    startSound.currentTime = 0;
+    startSound.play().catch(error => {
+      console.error("Error playing start sound:", error);
+    });
+  }
 }
 
 /**
- * Play the grab sound
+ * Play disc grab sound
  */
 export function playGrabSound(): void {
-  if (!isAudioInitialized) return;
-  
-  // Clone and play to allow overlapping sounds
-  const sound = grabSound.cloneNode() as HTMLAudioElement;
-  sound.play().catch(error => {
-    console.warn("Could not play grab sound:", error);
-  });
+  if (grabSound) {
+    grabSound.currentTime = 0;
+    grabSound.play().catch(error => {
+      console.error("Error playing grab sound:", error);
+    });
+  }
+}
+
+/**
+ * Play bomb explosion sound
+ */
+export function playExplosionSound(): void {
+  if (explosionSound) {
+    explosionSound.currentTime = 0;
+    explosionSound.play().catch(error => {
+      console.error("Error playing explosion sound:", error);
+    });
+  }
 }

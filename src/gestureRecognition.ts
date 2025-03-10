@@ -12,6 +12,7 @@ let runningMode = "IMAGE";
 let lastVideoTime = -1;
 let lastTimestamp = 0;
 let lastResults = undefined; // Store last valid results
+let lastPeaceSignTime = 0; // Timestamp of last peace sign to prevent repeated toggling
 
 /**
  * Initialize the gesture recognizer
@@ -169,6 +170,7 @@ export function processHandGestures(
   onGrab: (x: number, y: number) => void,
   onRelease: (col: number) => void,
   onMove: (x: number, y: number, col: number) => void,
+  onPeaceSign: () => void, // Add peace sign handler
   canvasCtx: CanvasRenderingContext2D
 ) {
   // Only process if we have valid, current results with landmarks
@@ -215,6 +217,13 @@ export function processHandGestures(
       } else if (gestureName === "Open_Palm") {
         const col = calculateCurrentColumn(handX, gameConfig, canvasWidth);
         onRelease(col);
+      } else if (gestureName === "Victory" || gestureName === "Peace") {
+        // Handle peace sign for bomb toggle, with debounce to prevent multiple toggles
+        const now = Date.now();
+        if (now - lastPeaceSignTime > 1000) { // 1 second debounce
+          onPeaceSign();
+          lastPeaceSignTime = now;
+        }
       }
     }
 

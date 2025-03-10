@@ -1,6 +1,7 @@
 // Game state types
 export type GameState = "landing" | "game";
 export type Player = 1 | 2; // 1 for red, 2 for blue
+export type DiscType = "normal" | "bomb"; // Normal disc or bomb
 
 // Board types
 export type Cell = 0 | Player; // 0 for empty, 1 for red, 2 for blue
@@ -13,6 +14,7 @@ export interface ActiveDisc {
   radius: number;
   isGrabbed: boolean;
   color: string;
+  type: DiscType; // Add type to track if it's a normal disc or bomb
 }
 
 export interface PreviewDisc {
@@ -23,6 +25,7 @@ export interface PreviewDisc {
   radius: number;
   visible: boolean;
   color: string;
+  type: DiscType; // Add type for preview disc
 }
 
 export interface AnimatingDisc {
@@ -40,6 +43,7 @@ export interface AnimatingDisc {
   rotation: number; // Current rotation in radians
   rotationSpeed: number; // Rotation speed in radians per frame
   finalRotation: number; // Final rotation to approach near the end
+  type: DiscType;  // Add type for animating disc
 }
 
 export interface LandingPosition {
@@ -58,6 +62,22 @@ export interface WinningPosition {
 // Cell rotation
 export interface CellRotation {
   rotation: number;
+}
+
+// Store cell type information
+export interface CellType {
+  type: DiscType;
+}
+
+// Explosion animation
+export interface Explosion {
+  x: number;
+  y: number;
+  radius: number;
+  maxRadius: number;
+  alpha: number;
+  color: string;
+  player: Player;
 }
 
 // Game configuration

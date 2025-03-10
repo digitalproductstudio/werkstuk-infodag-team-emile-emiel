@@ -6,7 +6,8 @@ import {
   AnimatingDisc,
   ActiveDisc,
   PreviewDisc,
-  WinningPosition
+  WinningPosition,
+  DiscType
 } from './types';
 
 /**
@@ -143,7 +144,8 @@ export function startDiscAnimation(
     player: currentPlayer,
     rotation: 0, // Start with 0 rotation
     rotationSpeed: rotationSpeed,
-    finalRotation: finalRotation
+    finalRotation: finalRotation,
+    type: activeDisc.type // Pass the disc type (normal or bomb)
   };
 }
 
@@ -207,8 +209,18 @@ export function updatePreviewDisc(
     previewDisc.row = landingPosition.row;
     previewDisc.col = landingPosition.col;
     previewDisc.visible = true;
-    previewDisc.color = activeDisc.color === "#ef7d00" ? 
-      "rgba(239, 125, 0, 0.3)" : "rgba(0, 154, 212, 0.3)";
+    previewDisc.type = activeDisc.type; // Update preview disc type
+    
+    // Set color based on disc type and player
+    if (activeDisc.type === "bomb") {
+      // Use semi-transparent for bomb preview
+      previewDisc.color = activeDisc.color === "#ef7d00" ? 
+        "rgba(239, 125, 0, 0.5)" : "rgba(0, 154, 212, 0.5)";
+    } else {
+      // Normal disc preview
+      previewDisc.color = activeDisc.color === "#ef7d00" ? 
+        "rgba(239, 125, 0, 0.3)" : "rgba(0, 154, 212, 0.3)";
+    }
   } else {
     previewDisc.visible = false;
   }
@@ -257,4 +269,99 @@ export function calculateCurrentColumn(
 ): number {
   const boardStartX = getBoardStartX(canvasWidth, gameConfig.cellSize, gameConfig.cols);
   return Math.floor((x - boardStartX) / gameConfig.cellSize);
+}
+
+/**
+ * Process a bomb explosion
+ * Returns positions of discs that were affected by the explosion
+ */
+export function processBombExplosion(
+  gameBoard: GameBoard,
+  row: number,
+  col: number
+): { row: number, col: number }[] {
+  const rows = gameBoard.length;
+  const cols = gameBoard[0].length;
+  const affectedPositions: { row: number, col: number }[] = [];
+  
+  // Check all 8 surrounding positions + the bomb position itself
+  const directions = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1],  [0, 0],  [0, 1],
+    [1, -1],  [1, 0],  [1, 1]
+  ];
+  
+  for (const [dr, dc] of directions) {
+    const r = row + dr;
+    const c = col + dc;
+    
+    // Check if position is valid and contains a disc
+    if (r >= 0 && r < rows && c >= 0 && c < cols && gameBoard[r][c] !== 0) {
+      affectedPositions.push({ row: r, col: c });
+      gameBoard[r][c] = 0; // Clear the cell
+    }
+  }
+  
+  return affectedPositions;
+}
+
+/**
+ * Apply gravity after bombing
+ * Returns positions that were affected by gravity
+ */
+export function applyGravityAfterBombing(
+  gameBoard: GameBoard,
+  gameConfig: GameConfig,
+  discRotations: (number | null)[][],
+  discTypes: (DiscType | null)[][],
+  boardStartX: number,
+  boardStartY: number
+): { from: {row: number, col: number}, to: {row: number, col: number, x: number, y: number} }[] {
+  const movements: { 
+    from: {row: number, col: number}, 
+    to: {row: number, col: number, x: number, y: number} 
+  }[] = [];
+  
+  const rows = gameBoard.length;
+  const cols = gameBoard[0].length;
+  
+  // Process each column from bottom to top
+  for (let col = 0; col < cols; col++) {
+    let emptyRow = -1;
+    
+    // Scan from bottom to top to find empty spaces and drop discs
+    for (let row = rows - 1; row >= 0; row--) {
+      if (gameBoard[row][col] === 0 && emptyRow === -1) {
+        // Found an empty space
+        emptyRow = row;
+      } else if (gameBoard[row][col] !== 0 && emptyRow !== -1) {
+        // Found a disc above an empty space, needs to fall
+        
+        // Move the disc data
+        gameBoard[emptyRow][col] = gameBoard[row][col];
+        discRotations[emptyRow][col] = discRotations[row][col];
+        discTypes[emptyRow][col] = discTypes[row][col];
+        
+        // Clear the original position
+        gameBoard[row][col] = 0;
+        discRotations[row][col] = null;
+        discTypes[row][col] = null;
+        
+        // Calculate new position for animation
+        const targetX = boardStartX + col * gameConfig.cellSize + gameConfig.cellSize / 2;
+        const targetY = boardStartY + emptyRow * gameConfig.cellSize + gameConfig.cellSize / 2;
+        
+        // Record the movement for animation
+        movements.push({
+          from: { row, col },
+          to: { row: emptyRow, col, x: targetX, y: targetY }
+        });
+        
+        // Look for new empty spaces
+        emptyRow--;
+      }
+    }
+  }
+  
+  return movements;
 }

@@ -11,7 +11,8 @@ import {
   playPlaceSound,
   playWinSound,
   playStartSound,
-  playGrabSound
+  playGrabSound,
+  playExplosionSound
 } from './audio';
 
 import {
@@ -20,6 +21,7 @@ import {
   currentPlayer,
   gameBoard,
   discRotations,
+  discTypes,
   animatingDiscs,
   activeDisc,
   previewDisc,
@@ -38,7 +40,14 @@ import {
   winningPositions,
   updateWinTimer,
   winTimerDuration,
-  setAppState
+  setAppState,
+  toggleBomb,
+  useBomb,
+  playerBombs,
+  bombSelected,
+  addExplosion,
+  updateExplosions,
+  explosions
 } from './gameState';
 
 import {
@@ -46,7 +55,11 @@ import {
   updateAnimatingDisc,
   resetPreviewDisc,
   updatePreviewDisc,
-  dropDisc
+  dropDisc,
+  processBombExplosion,
+  applyGravityAfterBombing,
+  getBoardStartX,
+  getBoardStartY
 } from './gameLogic';
 
 import {
@@ -73,6 +86,9 @@ const canvasCtx = canvasElement.getContext("2d");
 
 // Game status tracking
 let webcamRunning: boolean = false;
+let bombDropped: boolean = false;
+let gravityApplied: boolean = false;
+let bombTimer: number = 0;
 
 // Initialize and start game
 window.addEventListener('load', () => {
@@ -185,6 +201,9 @@ function handleLandingState(results: any, deltaTime: number) {
 function handleGameState(results: any, deltaTime: number) {
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
+  // Update explosions
+  updateExplosions(deltaTime);
+
   // Draw the game board
   drawGameBoard(
     canvasCtx, 
@@ -194,11 +213,36 @@ function handleGameState(results: any, deltaTime: number) {
     dimensions.canvasHeight
   );
   
+  // Process bomb animation if needed
+  if (bombDropped) {
+    bombTimer += deltaTime;
+    
+    // After a short delay, apply gravity and resume game
+    if (bombTimer > 1000 && !gravityApplied) {
+      applyGravityAfterBombing(
+        gameBoard,
+        gameConfig,
+        discRotations,
+        discTypes,
+        getBoardStartX(dimensions.canvasWidth, gameConfig.cellSize, gameConfig.cols),
+        getBoardStartY(dimensions.canvasHeight, gameConfig.cellSize, gameConfig.rows)
+      );
+      gravityApplied = true;
+    }
+    
+    // After explosion finishes, reset bomb animation states
+    if (bombTimer > 2000) {
+      bombDropped = false;
+      bombTimer = 0;
+      gravityApplied = false;
+    }
+  }
+  
   // Update and draw animating discs
   updateAnimatingDiscs();
   
-  // Process hand gestures only if game is not over
-  if (!gameOver) {
+  // Process hand gestures only if game is not over and no bomb animation
+  if (!gameOver && !bombDropped) {
     processHandGestures(
       results,
       activeDisc,
@@ -209,12 +253,13 @@ function handleGameState(results: any, deltaTime: number) {
       handleDiscGrab,
       handleDiscRelease,
       handleDiscMove,
+      handlePeaceSign, // Add peace sign handler for bomb selection
       canvasCtx
     );
   }
 
-  // Draw the preview and active discs (only if game is not over)
-  if (!gameOver) {
+  // Draw the preview and active discs (only if game is not over and no bomb animation)
+  if (!gameOver && !bombDropped) {
     drawPreviewDisc(canvasCtx, previewDisc);
     drawActiveDisc(canvasCtx, activeDisc);
   }
@@ -254,6 +299,18 @@ function handleGameState(results: any, deltaTime: number) {
 }
 
 /**
+ * Handle peace sign gesture for toggling bomb
+ */
+function handlePeaceSign() {
+  if (!gameOver && !bombDropped && !activeDisc.isGrabbed) {
+    const toggled = toggleBomb();
+    if (toggled) {
+      playGrabSound(); // Play sound when toggling bomb
+    }
+  }
+}
+
+/**
  * Update and draw animating discs
  */
 function updateAnimatingDiscs() {
@@ -268,18 +325,24 @@ function updateAnimatingDiscs() {
       disc.x = disc.targetX;
       disc.y = disc.targetY;
       
-      // Store the final rotation
+      // Store the final rotation and disc type
       discRotations[disc.row][disc.col] = disc.rotation;
+      discTypes[disc.row][disc.col] = disc.type;
       
       // Update the game board
       gameBoard[disc.row][disc.col] = disc.player;
       
-      // Check for a win using the player who just made the move
-      const positions = checkWin(gameBoard, disc.row, disc.col, disc.player);
-      if (positions) {
-        setWinningPositions(positions);
-        setGameOver(true);
-        playWinSound(); // Play win sound when a player wins
+      // Check if this was a bomb
+      if (disc.type === "bomb") {
+        handleBombLanding(disc);
+      } else {
+        // Check for a win using the player who just made the move
+        const positions = checkWin(gameBoard, disc.row, disc.col, disc.player);
+        if (positions) {
+          setWinningPositions(positions);
+          setGameOver(true);
+          playWinSound(); // Play win sound when a player wins
+        }
       }
       
       // Remove this disc from the animating array
@@ -289,6 +352,37 @@ function updateAnimatingDiscs() {
     // Draw the animating disc
     drawAnimatingDisc(canvasCtx, disc);
   }
+}
+
+/**
+ * Handle bomb landing and explosion
+ */
+function handleBombLanding(disc: any) {
+  // Set bomb animation flag
+  bombDropped = true;
+  bombTimer = 0;
+  gravityApplied = false;
+  
+  // Play explosion sound
+  playExplosionSound();
+  
+  // Process bomb explosion
+  const affectedPositions = processBombExplosion(gameBoard, disc.row, disc.col);
+  
+  // Clear rotation and type data for affected positions
+  affectedPositions.forEach(pos => {
+    discRotations[pos.row][pos.col] = null;
+    discTypes[pos.row][pos.col] = null;
+  });
+  
+  // Add explosion effect at bomb position
+  const boardStartX = getBoardStartX(dimensions.canvasWidth, gameConfig.cellSize, gameConfig.cols);
+  const boardStartY = getBoardStartY(dimensions.canvasHeight, gameConfig.cellSize, gameConfig.rows);
+  
+  const explosionX = boardStartX + disc.col * gameConfig.cellSize + gameConfig.cellSize / 2;
+  const explosionY = boardStartY + disc.row * gameConfig.cellSize + gameConfig.cellSize / 2;
+  
+  addExplosion(explosionX, explosionY, disc.player);
 }
 
 /**
@@ -321,6 +415,11 @@ function handleDiscRelease(col: number) {
       );
       
       if (newDisc) {
+        // If dropping a bomb, use it
+        if (activeDisc.type === "bomb") {
+          useBomb();
+        }
+        
         addAnimatingDisc(newDisc);
         playPlaceSound(); // Play sound when disc is placed
         switchPlayer(dimensions.canvasWidth);

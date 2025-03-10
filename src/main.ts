@@ -4,7 +4,10 @@ import {
   gameConfig,
   dimensions,
   initialize,
-  setupDimensions
+  setupDimensions,
+  closedHandImage,
+  openHandImage,
+  peaceHandImage
 } from './setup';
 
 import {
@@ -75,7 +78,8 @@ import {
   drawActiveDisc,
   drawPreviewDisc,
   drawAnimatingDisc,
-  drawGameStatus
+  drawGameStatus,
+  drawInstructionsPanel
 } from './rendering';
 
 // DOM Elements
@@ -294,6 +298,16 @@ function handleGameState(results: any, deltaTime: number) {
       dimensions.canvasWidth
     );
   }
+  
+  // Draw instructions panel in the bottom left
+  drawInstructionsPanel(
+    canvasCtx,
+    dimensions.canvasWidth,
+    dimensions.canvasHeight,
+    closedHandImage,
+    openHandImage,
+    peaceHandImage
+  );
   
   // Remove the click to reset logic - we now use a timer
   canvasElement.onclick = null;

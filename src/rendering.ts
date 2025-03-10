@@ -35,6 +35,7 @@ function isWinningPosition(row: number, col: number): boolean {
 
 /**
  * Draw the landing page with white text and black outline
+ * Warning message positioned below the progress bar
  */
 export function drawLandingPage(
   canvasCtx: CanvasRenderingContext2D,
@@ -84,6 +85,22 @@ export function drawLandingPage(
   canvasCtx.font = "16px 'Montserrat', sans-serif";
   canvasCtx.fillText(`${Math.floor(progressBarWidth * 100)}%`, barX + barWidth / 2, barY + barHeight / 2 + 5);
   
+  // Two-player warning message below progress bar
+  canvasCtx.font = "bold 22px 'Montserrat', sans-serif";
+  
+  // Add a subtle highlight behind the warning text
+  const warningText = "LET OP: Dit spel heeft 2 spelers nodig!";
+  
+  // Position for warning message (below progress bar)
+  const warningY = barY + barHeight + 50; // 40px below the progress bar
+  
+  // Draw warning text
+  canvasCtx.lineWidth = 2;
+  canvasCtx.strokeStyle = "#000000";
+  canvasCtx.strokeText(warningText, canvasWidth / 2, warningY);
+  canvasCtx.fillStyle = "#FFFFFF";
+  canvasCtx.fillText(warningText, canvasWidth / 2, warningY);
+  
   // Draw QR code in bottom right corner
   // Set title for QR code with white text and black outline
   canvasCtx.font = "bold 16px 'Montserrat', sans-serif";
@@ -108,6 +125,170 @@ export function drawLandingPage(
   canvasCtx.font = "16px 'Montserrat', sans-serif";
   canvasCtx.strokeText("- Gemaakt door Emile Bergers en Emiel Clopterop IMD2 -", canvasWidth / 2, canvasHeight - 20);
   canvasCtx.fillText("- Gemaakt door Emile Bergers en Emiel Clopterop IMD2 -", canvasWidth / 2, canvasHeight - 20);
+}
+
+/**
+ * Draw game instructions panel in the bottom left
+ */
+export function drawInstructionsPanel(
+  canvasCtx: CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  closedHandImage: HTMLImageElement | null,
+  openHandImage: HTMLImageElement | null,
+  peaceHandImage: HTMLImageElement | null
+): void {
+  // Set panel dimensions and position
+  const padding = 15;
+  const panelWidth = 420;
+  const panelHeight = 160;
+  const panelX = padding;
+  const panelY = canvasHeight - panelHeight - padding;
+  const cornerRadius = 10;
+  
+  // Draw semi-transparent background with rounded corners
+  canvasCtx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  
+  // Draw rounded rectangle (compatible with all browsers)
+  canvasCtx.beginPath();
+  canvasCtx.moveTo(panelX + cornerRadius, panelY);
+  canvasCtx.lineTo(panelX + panelWidth - cornerRadius, panelY);
+  canvasCtx.arcTo(panelX + panelWidth, panelY, panelX + panelWidth, panelY + cornerRadius, cornerRadius);
+  canvasCtx.lineTo(panelX + panelWidth, panelY + panelHeight - cornerRadius);
+  canvasCtx.arcTo(panelX + panelWidth, panelY + panelHeight, panelX + panelWidth - cornerRadius, panelY + panelHeight, cornerRadius);
+  canvasCtx.lineTo(panelX + cornerRadius, panelY + panelHeight);
+  canvasCtx.arcTo(panelX, panelY + panelHeight, panelX, panelY + panelHeight - cornerRadius, cornerRadius);
+  canvasCtx.lineTo(panelX, panelY + cornerRadius);
+  canvasCtx.arcTo(panelX, panelY, panelX + cornerRadius, panelY, cornerRadius);
+  canvasCtx.closePath();
+  canvasCtx.fill();
+  
+  // Set common text styling
+  canvasCtx.font = "14px 'Montserrat', sans-serif";
+  canvasCtx.textAlign = "left";
+  canvasCtx.lineWidth = 1.5;
+  canvasCtx.strokeStyle = "#000000";
+  canvasCtx.fillStyle = "#FFFFFF";
+  
+  // Define image size and spacing
+  const imageSize = 40;
+  const imageRadius = imageSize / 2;
+  const textX = panelX + imageSize + 15;
+  const lineHeight = 50;
+  
+  // First row - Closed Hand with rounded image
+  if (closedHandImage && closedHandImage.complete) {
+    const imageX = panelX + 10 + imageRadius;
+    const imageY = panelY + 10 + imageRadius;
+    
+    // Create a circular clipping path
+    canvasCtx.save();
+    canvasCtx.beginPath();
+    canvasCtx.arc(imageX, imageY, imageRadius, 0, 2 * Math.PI);
+    canvasCtx.clip();
+    
+    // Draw the hand image centered within the circular clip
+    canvasCtx.drawImage(
+      closedHandImage,
+      imageX - imageRadius,
+      imageY - imageRadius,
+      imageSize,
+      imageSize
+    );
+    
+    // Restore canvas state after clipping
+    canvasCtx.restore();
+    
+    // Add a circular stroke around the image
+    canvasCtx.beginPath();
+    canvasCtx.arc(imageX, imageY, imageRadius, 0, 2 * Math.PI);
+    canvasCtx.strokeStyle = "#FFFFFF";
+    canvasCtx.lineWidth = 1;
+    canvasCtx.stroke();
+  }
+  
+  // Draw first instruction text with outline
+  const closedHandText = "Maak een vuist om een disk vast te nemen";
+  canvasCtx.strokeStyle = "#000000";
+  canvasCtx.lineWidth = 1.5;
+  canvasCtx.strokeText(closedHandText, textX, panelY + 35);
+  canvasCtx.fillText(closedHandText, textX, panelY + 35);
+  
+  // Second row - Open Hand with rounded image
+  if (openHandImage && openHandImage.complete) {
+    const imageX = panelX + 10 + imageRadius;
+    const imageY = panelY + 10 + lineHeight + imageRadius;
+    
+    // Create a circular clipping path
+    canvasCtx.save();
+    canvasCtx.beginPath();
+    canvasCtx.arc(imageX, imageY, imageRadius, 0, 2 * Math.PI);
+    canvasCtx.clip();
+    
+    // Draw the hand image centered within the circular clip
+    canvasCtx.drawImage(
+      openHandImage,
+      imageX - imageRadius,
+      imageY - imageRadius,
+      imageSize,
+      imageSize
+    );
+    
+    // Restore canvas state after clipping
+    canvasCtx.restore();
+    
+    // Add a circular stroke around the image
+    canvasCtx.beginPath();
+    canvasCtx.arc(imageX, imageY, imageRadius, 0, 2 * Math.PI);
+    canvasCtx.strokeStyle = "#FFFFFF";
+    canvasCtx.lineWidth = 1;
+    canvasCtx.stroke();
+  }
+  
+  // Draw second instruction text with outline
+  const openHandText = "Open je handpalm om een disk te laten vallen";
+  canvasCtx.strokeStyle = "#000000";
+  canvasCtx.lineWidth = 1.5;
+  canvasCtx.strokeText(openHandText, textX, panelY + 35 + lineHeight);
+  canvasCtx.fillText(openHandText, textX, panelY + 35 + lineHeight);
+  
+  // Third row - Peace Hand with rounded image
+  if (peaceHandImage && peaceHandImage.complete) {
+    const imageX = panelX + 10 + imageRadius;
+    const imageY = panelY + 10 + lineHeight * 2 + imageRadius;
+    
+    // Create a circular clipping path
+    canvasCtx.save();
+    canvasCtx.beginPath();
+    canvasCtx.arc(imageX, imageY, imageRadius, 0, 2 * Math.PI);
+    canvasCtx.clip();
+    
+    // Draw the hand image centered within the circular clip
+    canvasCtx.drawImage(
+      peaceHandImage,
+      imageX - imageRadius,
+      imageY - imageRadius,
+      imageSize,
+      imageSize
+    );
+    
+    // Restore canvas state after clipping
+    canvasCtx.restore();
+    
+    // Add a circular stroke around the image
+    canvasCtx.beginPath();
+    canvasCtx.arc(imageX, imageY, imageRadius, 0, 2 * Math.PI);
+    canvasCtx.strokeStyle = "#FFFFFF";
+    canvasCtx.lineWidth = 1;
+    canvasCtx.stroke();
+  }
+  
+  // Draw third instruction text with outline
+  const peaceHandText = "Peace teken voor je bomb power-up (1 per speler)";
+  canvasCtx.strokeStyle = "#000000";
+  canvasCtx.lineWidth = 1.5;
+  canvasCtx.strokeText(peaceHandText, textX, panelY + 35 + lineHeight * 2);
+  canvasCtx.fillText(peaceHandText, textX, panelY + 35 + lineHeight * 2);
 }
 
 /**

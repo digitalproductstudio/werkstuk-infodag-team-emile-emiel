@@ -7,6 +7,11 @@ import { initializeAudio } from './audio';
 export let qrCodeImage: HTMLImageElement | null = null;
 export let arteLogoImage: HTMLImageElement | null = null;
 
+// Instruction images
+export let closedHandImage: HTMLImageElement | null = null;
+export let openHandImage: HTMLImageElement | null = null;
+export let peaceHandImage: HTMLImageElement | null = null;
+
 /**
  * Game configuration
  */
@@ -40,6 +45,7 @@ export async function initialize(
   initializeAudio(); // Initialize sound effects
   preloadQRCode(); // Preload QR code image
   preloadArteLogo(); // Preload Arte logo image
+  preloadInstructionImages(); // Preload instruction images
 }
 
 /**
@@ -65,6 +71,35 @@ function preloadArteLogo(): void {
   arteLogoImage.onerror = () => {
     console.error('Error loading Arte logo image');
     arteLogoImage = null;
+  };
+}
+
+/**
+ * Preload instruction images
+ */
+function preloadInstructionImages(): void {
+  // Closed hand image
+  closedHandImage = new Image();
+  closedHandImage.src = 'images/closed-hand.jpg';
+  closedHandImage.onerror = () => {
+    console.error('Error loading closed hand image');
+    closedHandImage = null;
+  };
+  
+  // Open hand image
+  openHandImage = new Image();
+  openHandImage.src = 'images/open-hand.jpg';
+  openHandImage.onerror = () => {
+    console.error('Error loading open hand image');
+    openHandImage = null;
+  };
+  
+  // Peace hand image
+  peaceHandImage = new Image();
+  peaceHandImage.src = 'images/peace-hand.png';
+  peaceHandImage.onerror = () => {
+    console.error('Error loading peace hand image');
+    peaceHandImage = null;
   };
 }
 

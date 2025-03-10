@@ -1,425 +1,449 @@
+window.addEventListener('resize', handleResize);
+
 import {
-  GestureRecognizer,
-  FilesetResolver,
-  DrawingUtils
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+  gameConfig,
+  dimensions,
+  initialize,
+  setupDimensions
+} from './setup';
 
+import {
+  playPlaceSound,
+  playWinSound,
+  playStartSound,
+  playGrabSound,
+  playExplosionSound
+} from './audio';
+
+import {
+  appState,
+  gameOver,
+  currentPlayer,
+  gameBoard,
+  discRotations,
+  discTypes,
+  animatingDiscs,
+  activeDisc,
+  previewDisc,
+  thumbUpTime,
+  progressBarWidth,
+  resetGame,
+  startGame,
+  switchPlayer,
+  addAnimatingDisc,
+  removeAnimatingDisc,
+  updateThumbProgress,
+  resetThumbProgress,
+  isThumbProgressComplete,
+  setGameOver,
+  setWinningPositions,
+  winningPositions,
+  updateWinTimer,
+  winTimerDuration,
+  setAppState,
+  toggleBomb,
+  useBomb,
+  playerBombs,
+  bombSelected,
+  addExplosion,
+  updateExplosions,
+  explosions
+} from './gameState';
+
+import {
+  checkWin,
+  updateAnimatingDisc,
+  resetPreviewDisc,
+  updatePreviewDisc,
+  dropDisc,
+  processBombExplosion,
+  applyGravityAfterBombing,
+  getBoardStartX,
+  getBoardStartY
+} from './gameLogic';
+
+import {
+  processVideoFrame,
+  setupWebcam,
+  updateTimestamp,
+  processHandGestures
+} from './gestureRecognition';
+
+import {
+  drawLandingPage,
+  drawGameBoard,
+  drawActiveDisc,
+  drawPreviewDisc,
+  drawAnimatingDisc,
+  drawGameStatus
+} from './rendering';
+
+// DOM Elements
 const demosSection = document.getElementById("demos");
-let gestureRecognizer: GestureRecognizer;
-let runningMode = "IMAGE";
-let webcamRunning: Boolean = false;
-
-// Responsive dimensions
-let videoWidth: number;
-let videoHeight: number;
-let canvasWidth: number;
-let canvasHeight: number;
-
-// Game setup
-const ROWS = 6;
-const COLS = 7;
-let CELL_SIZE: number; // Will be calculated based on screen width
-let DISC_RADIUS: number; // Will be calculated based on CELL_SIZE
-let currentPlayer = 1; // 1 for red, 2 for blue
-let gameBoard = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
-let gameOver = false;
-
-// Landing page tracking
-let appState = "landing"; // "landing", "game"
-let thumbUpTime = 0;
-const requiredThumbTime = 2000; // 2 seconds in milliseconds
-let progressBarWidth = 0;
-
-// Active disc that can be moved
-let activeDisc = { 
-  x: 0, // Will be set properly during setup
-  y: 0, // Will be set properly during setup
-  radius: 0, // Will be set properly during setup
-  isGrabbed: false,
-  color: currentPlayer === 1 ? "red" : "blue"
-};
-
-const createGestureRecognizer = async () => {
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
-  );
-  gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
-      delegate: "GPU"
-    },
-    runningMode: runningMode
-  });
-  demosSection.classList.remove("invisible");
-  // Automatically start camera when recognizer is ready
-  enableCam();
-};
-createGestureRecognizer();
-
 const video = document.getElementById("webcam") as HTMLVideoElement;
 const canvasElement = document.getElementById("output_canvas") as HTMLCanvasElement;
 const canvasCtx = canvasElement.getContext("2d");
-const gestureOutput = document.getElementById("gesture_output");
 
-// Function to setup dimensions based on window size
-function setupDimensions() {
-  // Get window dimensions
-  videoWidth = window.innerWidth;
-  videoHeight = window.innerHeight;
-  
-  // Set video dimensions
-  video.style.width = videoWidth + "px";
-  video.style.height = videoHeight + "px";
-  
-  // Calculate game board dimensions
-  canvasWidth = window.innerWidth;
-  canvasHeight = window.innerHeight;
-  CELL_SIZE = Math.min(canvasWidth / COLS, canvasHeight / (ROWS + 2)); // +2 to leave room at top and bottom
-  DISC_RADIUS = CELL_SIZE * 0.4;
-  
-  // Update canvas dimensions
-  canvasElement.width = canvasWidth;
-  canvasElement.height = canvasHeight;
-  
-  // Position the active disc initially at the top of the game area
-  activeDisc.x = canvasWidth / 2;
-  activeDisc.y = CELL_SIZE / 2;
-  activeDisc.radius = DISC_RADIUS;
-}
+// Game status tracking
+let webcamRunning: boolean = false;
+let bombDropped: boolean = false;
+let gravityApplied: boolean = false;
+let bombTimer: number = 0;
 
-// Call setup on load and window resize
-window.addEventListener('load', setupDimensions);
-window.addEventListener('resize', () => {
-  setupDimensions();
-  resetGame(); // Reset game to adjust all positions
+// Initialize and start game
+window.addEventListener('load', () => {
+  console.log("Window loaded, initializing game...");
+  initialize(video, canvasElement)
+    .then(() => {
+      console.log("Game initialized, enabling webcam...");
+      enableCam();
+    })
+    .catch(error => {
+      console.error("Error initializing game:", error);
+      // Show error on screen for debugging
+      if (canvasCtx) {
+        canvasCtx.fillStyle = "white";
+        canvasCtx.font = "20px Arial";
+        canvasCtx.fillText(`Initialization error: ${error.message}`, 20, 40);
+      }
+    });
 });
 
-function hasGetUserMedia() {
-  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+/**
+ * Handle window resize
+ */
+function handleResize() {
+  setupDimensions(video, canvasElement);
+  resetGame(gameConfig, dimensions.canvasWidth);
 }
 
+/**
+ * Enable webcam access
+ */
 function enableCam() {
-  if (!gestureRecognizer) {
-    alert("Please wait for gestureRecognizer to load");
-    return;
-  }
-  
   if (!webcamRunning) {
     webcamRunning = true;
   }
 
-  navigator.mediaDevices.getUserMedia({ 
-    video: { 
-      width: { ideal: window.innerWidth },
-      height: { ideal: window.innerHeight }
-    } 
-  }).then(function (stream) {
-    video.srcObject = stream;
-    video.addEventListener("loadeddata", predictWebcam);
-  });
+  setupWebcam(video, predictWebcam);
 }
 
-// Reset the game
-function resetGame() {
-  gameBoard = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
-  gameOver = false;
-  currentPlayer = 1;
-  activeDisc = { 
-    x: canvasWidth / 2, 
-    y: CELL_SIZE / 2, 
-    radius: DISC_RADIUS, 
-    isGrabbed: false,
-    color: "red"
-  };
-}
-
-// Start the game after landing page verification
-function startGame() {
-  appState = "game";
-  thumbUpTime = 0;
-  progressBarWidth = 0;
-  resetGame();
-}
-
-// Check if there's a winner
-function checkWin(row, col) {
-  const directions = [
-    [0, 1],  // horizontal
-    [1, 0],  // vertical
-    [1, 1],  // diagonal down-right
-    [1, -1]  // diagonal down-left
-  ];
-  
-  for (const [dr, dc] of directions) {
-    let count = 1;
-    
-    // Check in positive direction
-    for (let i = 1; i <= 3; i++) {
-      const r = row + i * dr;
-      const c = col + i * dc;
-      if (r < 0 || r >= ROWS || c < 0 || c >= COLS || gameBoard[r][c] !== currentPlayer) break;
-      count++;
-    }
-    
-    // Check in negative direction
-    for (let i = 1; i <= 3; i++) {
-      const r = row - i * dr;
-      const c = col - i * dc;
-      if (r < 0 || r >= ROWS || c < 0 || c >= COLS || gameBoard[r][c] !== currentPlayer) break;
-      count++;
-    }
-    
-    if (count >= 4) return true;
-  }
-  
-  return false;
-}
-
-// Drop the disc in the selected column
-function dropDisc(col) {
-  if (gameOver) return false;
-  
-  // Find the lowest empty row in the selected column
-  for (let row = ROWS - 1; row >= 0; row--) {
-    if (gameBoard[row][col] === 0) {
-      gameBoard[row][col] = currentPlayer;
-      
-      // Check for a win
-      if (checkWin(row, col)) {
-        gameOver = true;
-      }
-      
-      // Switch players
-      currentPlayer = currentPlayer === 1 ? 2 : 1;
-      
-      // Reset the active disc
-      activeDisc = { 
-        x: col * CELL_SIZE + CELL_SIZE / 2, 
-        y: CELL_SIZE / 2, 
-        radius: DISC_RADIUS, 
-        isGrabbed: false,
-        color: currentPlayer === 1 ? "red" : "blue"
-      };
-      
-      return true;
-    }
-  }
-  
-  return false; // Column is full
-}
-
-// Drawing the landing page with thumb verification
-function drawLandingPage() {
-  // Clear the canvas
-  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  
-  // Add semi-transparent overlay
-  canvasCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
-  canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-  
-  // Draw title
-  canvasCtx.fillStyle = "#FFFFFF";
-  canvasCtx.font = "bold 36px Arial";
-  canvasCtx.textAlign = "center";
-  canvasCtx.fillText("4 The Win", canvasWidth / 2, canvasHeight / 4);
-  
-  // Instructions
-  canvasCtx.font = "24px Arial";
-  canvasCtx.fillText("Hold up a 👍 for 2 seconds to start", canvasWidth / 2, canvasHeight / 3);
-  
-  // Progress bar background
-  const barWidth = canvasWidth * 0.6;
-  const barHeight = 30;
-  const barX = (canvasWidth - barWidth) / 2;
-  const barY = canvasHeight / 2;
-  
-  canvasCtx.fillStyle = "#444444";
-  canvasCtx.fillRect(barX, barY, barWidth, barHeight);
-  
-  // Progress bar fill
-  canvasCtx.fillStyle = "#00FF00";
-  canvasCtx.fillRect(barX, barY, progressBarWidth * barWidth, barHeight);
-  
-  // Progress percentage
-  canvasCtx.fillStyle = "#000000";
-  canvasCtx.font = "16px Arial";
-  canvasCtx.fillText(`${Math.floor(progressBarWidth * 100)}%`, barX + barWidth / 2, barY + barHeight / 2 + 5);
-}
-
-let lastVideoTime = -1;
-let results = undefined;
-let lastTimestamp = 0;
-
+/**
+ * Main game loop
+ */
 async function predictWebcam() {
-  if (runningMode === "IMAGE") {
-    runningMode = "VIDEO";
-    await gestureRecognizer.setOptions({ runningMode: "VIDEO" });
-  }
+  try {
+    const deltaTime = updateTimestamp();
+    const results = await processVideoFrame(video, Date.now());
 
-  let nowInMs = Date.now();
-  const deltaTime = lastTimestamp ? nowInMs - lastTimestamp : 0;
-  lastTimestamp = nowInMs;
+    // Handle current app state
+    if (appState === "landing") {
+      handleLandingState(results, deltaTime);
+    } else if (appState === "game") {
+      handleGameState(results, deltaTime);
+    }
+
+    if (webcamRunning) {
+      window.requestAnimationFrame(predictWebcam);
+    }
+  } catch (error) {
+    console.error("Error in game loop:", error);
+    // Display error on screen
+    if (canvasCtx) {
+      canvasCtx.fillStyle = "white";
+      canvasCtx.font = "20px Arial";
+      canvasCtx.fillText(`Game error: ${error.message}`, 20, 70);
+      
+      // Try to continue the game loop
+      if (webcamRunning) {
+        window.requestAnimationFrame(predictWebcam);
+      }
+    }
+  }
+}
+
+/**
+ * Handle landing page state
+ */
+function handleLandingState(results: any, deltaTime: number) {
+  drawLandingPage(
+    canvasCtx, 
+    dimensions.canvasWidth, 
+    dimensions.canvasHeight, 
+    progressBarWidth
+  );
   
-  if (video.currentTime !== lastVideoTime) {
-    lastVideoTime = video.currentTime;
-    results = await gestureRecognizer.recognizeForVideo(video, nowInMs);
-  }
-
-  // If we're on the landing page
-  if (appState === "landing") {
-    drawLandingPage();
+  // Check for thumb up gesture
+  if (results && results.gestures && results.gestures.length > 0) {
+    const gestureName = results.gestures[0][0].categoryName;
     
-    // Check for thumb up gesture
-    if (results && results.gestures.length > 0) {
-      const gestureName = results.gestures[0][0].categoryName;
+    if (gestureName === "Thumb_Up") {
+      updateThumbProgress(deltaTime);
       
-      if (gestureName === "Thumb_Up") {
-        thumbUpTime += deltaTime;
-        progressBarWidth = Math.min(thumbUpTime / requiredThumbTime, 1);
-        
-        if (thumbUpTime >= requiredThumbTime) {
-          startGame();
-        }
-      } else {
-        // Reset progress if thumb is removed
-        thumbUpTime = 0;
-        progressBarWidth = 0;
+      if (isThumbProgressComplete()) {
+        playStartSound(); // Play start sound when the game begins
+        startGame();
+        resetGame(gameConfig, dimensions.canvasWidth);
       }
-    }
-  } 
-  // If the game is active
-  else if (appState === "game") {
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    const drawingUtils = new DrawingUtils(canvasCtx);
-
-    // Draw the game board
-    drawGameBoard();
-
-    if (results && results.landmarks) {
-      for (const landmarks of results.landmarks) {
-        drawingUtils.drawConnectors(
-          landmarks,
-          GestureRecognizer.HAND_CONNECTIONS,
-          { color: "#00FF00", lineWidth: 5 }
-        );
-        drawingUtils.drawLandmarks(landmarks, { color: "#FF0000", lineWidth: 2 });
-
-        // Get the hand center position (index finger base for tracking)
-        let handX = landmarks[9].x * canvasElement.width;
-        let handY = landmarks[9].y * canvasElement.height;
-
-        // Detect grab or release gesture
-        const gestureName = results.gestures[0]?.[0]?.categoryName;
-        if (gestureName === "Closed_Fist") {
-          if (!activeDisc.isGrabbed) {
-            const dx = handX - activeDisc.x;
-            const dy = handY - activeDisc.y;
-            if (Math.sqrt(dx * dx + dy * dy) < activeDisc.radius * 2) {
-              activeDisc.isGrabbed = true;
-            }
-          }
-        } else if (gestureName === "Open_Palm") {
-          if (activeDisc.isGrabbed) {
-            // When releasing, try to drop the disc
-            const col = Math.floor((activeDisc.x - getBoardStartX()) / CELL_SIZE);
-            if (col >= 0 && col < COLS) {
-              dropDisc(col);
-            }
-          }
-          activeDisc.isGrabbed = false;
-        }
-
-        if (activeDisc.isGrabbed) {
-          activeDisc.x = handX;
-          // Limit vertical movement to just below the top of the board
-          activeDisc.y = Math.min(CELL_SIZE, handY);
-        }
-      }
-    }
-
-    // Draw the active disc
-    canvasCtx.beginPath();
-    canvasCtx.arc(activeDisc.x, activeDisc.y, activeDisc.radius, 0, 2 * Math.PI);
-    canvasCtx.fillStyle = activeDisc.color;
-    canvasCtx.fill();
-    canvasCtx.stroke();
-
-    // Display game status
-    canvasCtx.font = "20px Arial";
-    canvasCtx.fillStyle = "black";
-    
-    if (gameOver) {
-      canvasCtx.fillText(`Player ${currentPlayer === 1 ? 2 : 1} wins! Click to reset.`,canvasWidth / 2, 30);
-      
-      // Add click listener to reset game
-      canvasElement.onclick = () => {
-        resetGame();
-      };
     } else {
-      canvasCtx.fillText(`Current player: ${currentPlayer === 1 ? "Red" : "Blue"}`, canvasWidth / 2, 30);
-      canvasElement.onclick = null;
+      // Reset progress if a different gesture is detected
+      resetThumbProgress();
+    }
+  } else {
+    // Reset progress if no hand is detected (tracking lost)
+    resetThumbProgress();
+  }
+}
+
+/**
+ * Handle game state
+ */
+function handleGameState(results: any, deltaTime: number) {
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+  // Update explosions
+  updateExplosions(deltaTime);
+
+  // Draw the game board
+  drawGameBoard(
+    canvasCtx, 
+    gameBoard, 
+    gameConfig, 
+    dimensions.canvasWidth, 
+    dimensions.canvasHeight
+  );
+  
+  // Process bomb animation if needed
+  if (bombDropped) {
+    bombTimer += deltaTime;
+    
+    // After a short delay, apply gravity and resume game
+    if (bombTimer > 1000 && !gravityApplied) {
+      applyGravityAfterBombing(
+        gameBoard,
+        gameConfig,
+        discRotations,
+        discTypes,
+        getBoardStartX(dimensions.canvasWidth, gameConfig.cellSize, gameConfig.cols),
+        getBoardStartY(dimensions.canvasHeight, gameConfig.cellSize, gameConfig.rows)
+      );
+      gravityApplied = true;
+    }
+    
+    // After explosion finishes, reset bomb animation states
+    if (bombTimer > 2000) {
+      bombDropped = false;
+      bombTimer = 0;
+      gravityApplied = false;
     }
   }
+  
+  // Update and draw animating discs
+  updateAnimatingDiscs();
+  
+  // Process hand gestures only if game is not over and no bomb animation
+  if (!gameOver && !bombDropped) {
+    processHandGestures(
+      results,
+      activeDisc,
+      gameBoard,
+      gameConfig,
+      dimensions.canvasWidth,
+      dimensions.canvasHeight,
+      handleDiscGrab,
+      handleDiscRelease,
+      handleDiscMove,
+      handlePeaceSign, // Add peace sign handler for bomb selection
+      canvasCtx
+    );
+  }
 
-  if (webcamRunning) {
-    window.requestAnimationFrame(predictWebcam);
+  // Draw the preview and active discs (only if game is not over and no bomb animation)
+  if (!gameOver && !bombDropped) {
+    drawPreviewDisc(canvasCtx, previewDisc);
+    drawActiveDisc(canvasCtx, activeDisc);
+  }
+
+  // Handle game over timer
+  if (gameOver) {
+    const winTime = updateWinTimer(deltaTime);
+    const timeLeft = Math.max(0, Math.ceil((winTimerDuration - winTime) / 1000));
+    
+    // Display game status with timer
+    drawGameStatus(
+      canvasCtx, 
+      gameOver, 
+      currentPlayer, 
+      dimensions.canvasWidth,
+      timeLeft
+    );
+    
+    // Check if timer expired
+    if (winTime >= winTimerDuration) {
+      // Reset to landing page
+      setAppState("landing");
+      resetGame(gameConfig, dimensions.canvasWidth);
+    }
+  } else {
+    // Display normal game status
+    drawGameStatus(
+      canvasCtx, 
+      gameOver, 
+      currentPlayer, 
+      dimensions.canvasWidth
+    );
+  }
+  
+  // Remove the click to reset logic - we now use a timer
+  canvasElement.onclick = null;
+}
+
+/**
+ * Handle peace sign gesture for toggling bomb
+ */
+function handlePeaceSign() {
+  if (!gameOver && !bombDropped && !activeDisc.isGrabbed) {
+    const toggled = toggleBomb();
+    if (toggled) {
+      playGrabSound(); // Play sound when toggling bomb
+    }
   }
 }
 
-// Helper function to calculate board start X position
-function getBoardStartX() {
-  return (canvasWidth - (CELL_SIZE * COLS)) / 2;
-}
-
-// Helper function to calculate board start Y position (at bottom of screen)
-function getBoardStartY() {
-  return canvasHeight - CELL_SIZE * ROWS - CELL_SIZE/2;
-}
-
-// Draw the game board
-function drawGameBoard() {
-  // Calculate the position to center the board horizontally and place at bottom
-  const boardStartX = getBoardStartX();
-  const boardStartY = getBoardStartY();
-  
-  // Save the current context state
-  canvasCtx.save();
-  
-  // Apply transparency (80% opacity = 0.8 alpha)
-  canvasCtx.globalAlpha = 0.8;
-  
-  // Draw board background
-  canvasCtx.fillStyle = "#FFC107";
-  canvasCtx.fillRect(boardStartX, boardStartY, CELL_SIZE * COLS, CELL_SIZE * ROWS);
-  
-  // Draw grid lines
-  canvasCtx.strokeStyle = "#000";
-  canvasCtx.lineWidth = 1;
-  
-  // Draw cells and pieces
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS; col++) {
-      const centerX = boardStartX + col * CELL_SIZE + CELL_SIZE / 2;
-      const centerY = boardStartY + row * CELL_SIZE + CELL_SIZE / 2;
+/**
+ * Update and draw animating discs
+ */
+function updateAnimatingDiscs() {
+  for (let i = animatingDiscs.length - 1; i >= 0; i--) {
+    const disc = animatingDiscs[i];
+    
+    // Update disc position
+    const animationComplete = updateAnimatingDisc(disc);
+    
+    if (animationComplete) {
+      // Place the disc in its final position
+      disc.x = disc.targetX;
+      disc.y = disc.targetY;
       
-      // Draw empty slot
-      canvasCtx.beginPath();
-      canvasCtx.arc(centerX, centerY, DISC_RADIUS, 0, 2 * Math.PI);
+      // Store the final rotation and disc type
+      discRotations[disc.row][disc.col] = disc.rotation;
+      discTypes[disc.row][disc.col] = disc.type;
       
-      if (gameBoard[row][col] === 0) {
-        canvasCtx.fillStyle = "white";
-      } else if (gameBoard[row][col] === 1) {
-        canvasCtx.fillStyle = "red";
+      // Update the game board
+      gameBoard[disc.row][disc.col] = disc.player;
+      
+      // Check if this was a bomb
+      if (disc.type === "bomb") {
+        handleBombLanding(disc);
       } else {
-        canvasCtx.fillStyle = "blue";
+        // Check for a win using the player who just made the move
+        const positions = checkWin(gameBoard, disc.row, disc.col, disc.player);
+        if (positions) {
+          setWinningPositions(positions);
+          setGameOver(true);
+          playWinSound(); // Play win sound when a player wins
+        }
       }
       
-      canvasCtx.fill();
-      canvasCtx.stroke();
+      // Remove this disc from the animating array
+      removeAnimatingDisc(i);
+    }
+    
+    // Draw the animating disc
+    drawAnimatingDisc(canvasCtx, disc);
+  }
+}
+
+/**
+ * Handle bomb landing and explosion
+ */
+function handleBombLanding(disc: any) {
+  // Set bomb animation flag
+  bombDropped = true;
+  bombTimer = 0;
+  gravityApplied = false;
+  
+  // Play explosion sound
+  playExplosionSound();
+  
+  // Process bomb explosion
+  const affectedPositions = processBombExplosion(gameBoard, disc.row, disc.col);
+  
+  // Clear rotation and type data for affected positions
+  affectedPositions.forEach(pos => {
+    discRotations[pos.row][pos.col] = null;
+    discTypes[pos.row][pos.col] = null;
+  });
+  
+  // Add explosion effect at bomb position
+  const boardStartX = getBoardStartX(dimensions.canvasWidth, gameConfig.cellSize, gameConfig.cols);
+  const boardStartY = getBoardStartY(dimensions.canvasHeight, gameConfig.cellSize, gameConfig.rows);
+  
+  const explosionX = boardStartX + disc.col * gameConfig.cellSize + gameConfig.cellSize / 2;
+  const explosionY = boardStartY + disc.row * gameConfig.cellSize + gameConfig.cellSize / 2;
+  
+  addExplosion(explosionX, explosionY, disc.player);
+}
+
+/**
+ * Handle when a disc is grabbed
+ */
+function handleDiscGrab(x: number, y: number) {
+  if (!activeDisc.isGrabbed) {
+    const dx = x - activeDisc.x;
+    const dy = y - activeDisc.y;
+    if (Math.sqrt(dx * dx + dy * dy) < activeDisc.radius * 2) {
+      activeDisc.isGrabbed = true;
+      playGrabSound(); // Play grab sound when a disc is grabbed
     }
   }
+}
+
+/**
+ * Handle when a disc is released
+ */
+function handleDiscRelease(col: number) {
+  if (activeDisc.isGrabbed && !gameOver) {
+    if (col >= 0 && col < gameConfig.cols) {
+      const newDisc = dropDisc(
+        col, 
+        gameBoard, 
+        gameConfig, 
+        dimensions, 
+        activeDisc, 
+        currentPlayer
+      );
+      
+      if (newDisc) {
+        // If dropping a bomb, use it
+        if (activeDisc.type === "bomb") {
+          useBomb();
+        }
+        
+        addAnimatingDisc(newDisc);
+        playPlaceSound(); // Play sound when disc is placed
+        switchPlayer(dimensions.canvasWidth);
+      }
+    }
+  }
+  activeDisc.isGrabbed = false;
+  resetPreviewDisc(previewDisc); // Hide preview when not grabbing
+}
+
+/**
+ * Handle disc movement
+ */
+function handleDiscMove(x: number, y: number, col: number) {
+  activeDisc.x = x;
+  activeDisc.y = Math.min(gameConfig.cellSize, y);
   
-  // Restore the context to its original state (resets transparency)
-  canvasCtx.restore();
+  updatePreviewDisc(
+    previewDisc,
+    activeDisc,
+    gameBoard,
+    col,
+    gameConfig,
+    dimensions.canvasWidth,
+    dimensions.canvasHeight
+  );
 }

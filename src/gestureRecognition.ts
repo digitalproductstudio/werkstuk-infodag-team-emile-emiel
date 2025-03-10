@@ -86,24 +86,35 @@ export async function processVideoFrame(video: HTMLVideoElement, timestamp: numb
   return null;
 }
 
-/**
- * Draw hand landmarks on canvas
- */
+//**
+/* Draw hand landmarks on canvas, mirroring them to match the mirrored video
+*/
 export function drawHandLandmarks(
-  canvasCtx: CanvasRenderingContext2D, 
-  landmarks: any[]
+ canvasCtx: CanvasRenderingContext2D, 
+ landmarks: any[]
 ) {
-  if (!landmarks) return;
-  
-  const drawingUtils = new DrawingUtils(canvasCtx);
-  
-  drawingUtils.drawConnectors(
-    landmarks,
-    GestureRecognizer.HAND_CONNECTIONS,
-    { color: "#00FF00", lineWidth: 5 }
-  );
-  
-  drawingUtils.drawLandmarks(landmarks, { color: "#FF0000", lineWidth: 2 });
+ if (!landmarks) return;
+ 
+ const drawingUtils = new DrawingUtils(canvasCtx);
+ 
+ // Save the current canvas state
+ canvasCtx.save();
+ 
+ // Mirror the canvas context horizontally to match the video
+ canvasCtx.scale(-1, 1);
+ canvasCtx.translate(-canvasCtx.canvas.width, 0);
+ 
+ // Draw the landmarks with the mirrored context
+ drawingUtils.drawConnectors(
+   landmarks,
+   GestureRecognizer.HAND_CONNECTIONS,
+   { color: "#00FF00", lineWidth: 5 }
+ );
+ 
+ drawingUtils.drawLandmarks(landmarks, { color: "#FF0000", lineWidth: 2 });
+ 
+ // Restore the canvas state
+ canvasCtx.restore();
 }
 
 /**
@@ -149,10 +160,13 @@ export function calculatePalmCenter(landmarks: any, canvasWidth: number, canvasH
   const wrist = landmarks[0];
   const middleBase = landmarks[9];
   
-  // The webcam view is already flipped in CSS (transform: rotateY(180deg))
-  // So we should use the landmarks directly without additional flipping
+  // Calculate the original x-coordinate (based on unmirrored landmarks)
+  const originalX = (wrist.x + middleBase.x) / 2 * canvasWidth;
+  // Flip the x-coordinate to match the mirrored display
+  const mirroredX = canvasWidth - originalX;
+  
   return {
-    x: (wrist.x + middleBase.x) / 2 * canvasWidth,
+    x: mirroredX,
     y: (wrist.y + middleBase.y) / 2 * canvasHeight
   };
 }

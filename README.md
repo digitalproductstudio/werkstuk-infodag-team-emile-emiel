@@ -10,3 +10,8 @@
 
 3. Start the development server: 
 *npm run dev*
+
+
+TO DO:
+1. Startscherm stylen en minder tekst
+2. uitleg duidelijker

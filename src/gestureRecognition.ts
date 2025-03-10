@@ -1,0 +1,234 @@
+import {
+  GestureRecognizer,
+  FilesetResolver,
+  DrawingUtils
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+
+import { GameBoard, GameConfig } from './types';
+import { getBoardStartX } from './gameLogic';
+
+let gestureRecognizer: GestureRecognizer;
+let runningMode = "IMAGE";
+let lastVideoTime = -1;
+let lastTimestamp = 0;
+let lastResults = undefined; // Store last valid results
+
+/**
+ * Initialize the gesture recognizer
+ */
+export async function initializeGestureRecognizer(demosSectionId: string): Promise<void> {
+  const demosSection = document.getElementById(demosSectionId);
+  if (!demosSection) {
+    console.error(`Element with ID "${demosSectionId}" not found`);
+    throw new Error(`Element with ID "${demosSectionId}" not found`);
+  }
+  
+  console.log("Loading vision models...");
+  try {
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+    );
+    
+    console.log("Creating gesture recognizer...");
+    gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath:
+          "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+        delegate: "GPU"
+      },
+      runningMode: runningMode
+    });
+    
+    // We don't need to remove the "invisible" class anymore
+    // since we've made the section visible by default
+    
+    console.log("Gesture recognizer initialized successfully");
+    return Promise.resolve();
+  } catch (error) {
+    console.error("Error initializing gesture recognizer:", error);
+    throw error;
+  }
+}
+
+/**
+ * Process video frame for gesture recognition
+ */
+export async function processVideoFrame(video: HTMLVideoElement, timestamp: number) {
+  if (runningMode === "IMAGE") {
+    runningMode = "VIDEO";
+    await gestureRecognizer.setOptions({ runningMode: "VIDEO" });
+  }
+
+  // Only process frame if video time has changed
+  if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    try {
+      const results = await gestureRecognizer.recognizeForVideo(video, timestamp);
+      if (results && results.landmarks && results.landmarks.length > 0) {
+        // Add timestamp to results so we can check freshness
+        results.timestamp = Date.now();
+        // Only update lastResults if we got valid hand landmarks
+        lastResults = results;
+        return results;
+      }
+    } catch (error) {
+      console.error("Error recognizing gestures:", error);
+    }
+  }
+
+  // If we have lastResults and they're from within the last 200ms, return them
+  if (lastResults && Date.now() - lastResults.timestamp < 200) {
+    return lastResults;
+  }
+  
+  // Otherwise return null to indicate tracking is lost
+  return null;
+}
+
+/**
+ * Draw hand landmarks on canvas
+ */
+export function drawHandLandmarks(
+  canvasCtx: CanvasRenderingContext2D, 
+  landmarks: any[]
+) {
+  if (!landmarks) return;
+  
+  const drawingUtils = new DrawingUtils(canvasCtx);
+  
+  drawingUtils.drawConnectors(
+    landmarks,
+    GestureRecognizer.HAND_CONNECTIONS,
+    { color: "#00FF00", lineWidth: 5 }
+  );
+  
+  drawingUtils.drawLandmarks(landmarks, { color: "#FF0000", lineWidth: 2 });
+}
+
+/**
+ * Setup webcam access
+ */
+export function setupWebcam(
+  video: HTMLVideoElement, 
+  onLoadedData: () => void
+): Promise<void> {
+  if (!gestureRecognizer) {
+    return Promise.reject("Gesture recognizer not initialized");
+  }
+
+  return navigator.mediaDevices.getUserMedia({ 
+    video: { 
+      width: { ideal: window.innerWidth },
+      height: { ideal: window.innerHeight }
+    } 
+  }).then(function (stream) {
+    video.srcObject = stream;
+    video.addEventListener("loadeddata", onLoadedData);
+    return Promise.resolve();
+  }).catch(function(err) {
+    return Promise.reject(err);
+  });
+}
+
+/**
+ * Update timestamp for animation
+ */
+export function updateTimestamp(): number {
+  const nowInMs = Date.now();
+  const deltaTime = lastTimestamp ? nowInMs - lastTimestamp : 0;
+  lastTimestamp = nowInMs;
+  return deltaTime;
+}
+
+/**
+ * Calculate palm center from hand landmarks
+ */
+export function calculatePalmCenter(landmarks: any, canvasWidth: number, canvasHeight: number) {
+  // Using the wrist (landmark 0) and middle finger base (landmark 9) for palm center
+  const wrist = landmarks[0];
+  const middleBase = landmarks[9];
+  
+  // The webcam view is already flipped in CSS (transform: rotateY(180deg))
+  // So we should use the landmarks directly without additional flipping
+  return {
+    x: (wrist.x + middleBase.x) / 2 * canvasWidth,
+    y: (wrist.y + middleBase.y) / 2 * canvasHeight
+  };
+}
+
+/**
+ * Process hand gestures for game interaction
+ */
+export function processHandGestures(
+  results: any,
+  activeDisc: any,
+  gameBoard: GameBoard,
+  gameConfig: GameConfig,
+  canvasWidth: number,
+  canvasHeight: number,
+  onGrab: (x: number, y: number) => void,
+  onRelease: (col: number) => void,
+  onMove: (x: number, y: number, col: number) => void,
+  canvasCtx: CanvasRenderingContext2D
+) {
+  // Only process if we have valid, current results with landmarks
+  if (!results || !results.landmarks || !results.landmarks.length) {
+    // Reset active disc grab state when tracking is lost
+    if (activeDisc.isGrabbed) {
+      activeDisc.isGrabbed = false;
+      // If there's an onRelease callback, call it with an invalid column to ensure proper cleanup
+      onRelease(-1);
+    }
+    return;
+  }
+  
+  // Use timestamp to check if the results are current
+  const currentTimestamp = Date.now();
+  const resultAge = currentTimestamp - results.timestamp;
+  
+  // If results are older than 500ms, consider tracking lost
+  if (results.timestamp && resultAge > 500) {
+    if (activeDisc.isGrabbed) {
+      activeDisc.isGrabbed = false;
+      onRelease(-1);
+    }
+    return;
+  }
+  
+  // Draw hand landmarks for all detected hands
+  for (const landmarks of results.landmarks) {
+    // Draw hand landmarks
+    drawHandLandmarks(canvasCtx, landmarks);
+
+    // Get the palm center position
+    const palmCenter = calculatePalmCenter(landmarks, canvasWidth, canvasHeight);
+    const handX = palmCenter.x;
+    const handY = palmCenter.y;
+
+    // Handle hand interaction only if we have gesture data
+    if (results.gestures && results.gestures.length > 0) {
+      // Detect grab or release gesture
+      const gestureName = results.gestures[0][0].categoryName;
+      
+      if (gestureName === "Closed_Fist") {
+        onGrab(handX, handY);
+      } else if (gestureName === "Open_Palm") {
+        const col = calculateCurrentColumn(handX, gameConfig, canvasWidth);
+        onRelease(col);
+      }
+    }
+
+    if (activeDisc.isGrabbed) {
+      const col = calculateCurrentColumn(handX, gameConfig, canvasWidth);
+      onMove(handX, handY, col);
+    }
+  }
+}
+
+/**
+ * Calculate current column from hand X position
+ */
+function calculateCurrentColumn(handX: number, gameConfig: GameConfig, canvasWidth: number): number {
+  const boardStartX = getBoardStartX(canvasWidth, gameConfig.cellSize, gameConfig.cols);
+  return Math.floor((handX - boardStartX) / gameConfig.cellSize);
+}

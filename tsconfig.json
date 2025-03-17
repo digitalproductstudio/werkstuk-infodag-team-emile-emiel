@@ -20,5 +20,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src", "game/rendering.ts", "game/gestureRecognition.ts", "game/setup.ts", "audio/audio.ts", "types/types.ts"]
 }

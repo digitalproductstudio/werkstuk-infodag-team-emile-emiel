@@ -8,7 +8,7 @@ import {
   closedHandImage,
   openHandImage,
   peaceHandImage
-} from './setup';
+} from './game/setup';
 
 import {
   playPlaceSound,
@@ -16,7 +16,7 @@ import {
   playStartSound,
   playGrabSound,
   playExplosionSound
-} from './audio';
+} from './game/audio';
 
 import {
   appState,
@@ -51,7 +51,7 @@ import {
   addExplosion,
   updateExplosions,
   explosions
-} from './gameState';
+} from './game/gameState';
 
 import {
   checkWin,
@@ -63,14 +63,14 @@ import {
   applyGravityAfterBombing,
   getBoardStartX,
   getBoardStartY
-} from './gameLogic';
+} from './game/gameLogic';
 
 import {
   processVideoFrame,
   setupWebcam,
   updateTimestamp,
   processHandGestures
-} from './gestureRecognition';
+} from './game/gestureRecognition';
 
 import {
   drawLandingPage,
@@ -80,7 +80,7 @@ import {
   drawAnimatingDisc,
   drawGameStatus,
   drawInstructionsPanel
-} from './rendering';
+} from './game/rendering';
 
 // DOM Elements
 const demosSection = document.getElementById("demos");

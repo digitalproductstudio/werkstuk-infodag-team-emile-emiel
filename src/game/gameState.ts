@@ -10,8 +10,11 @@ import {
   WinningPosition,
   DiscType,
   Explosion
-} from './types';
+} from '../types/types';
 import { createGameBoard } from './gameLogic';
+
+// Import bomb image directly
+import bombSrc from '../assets/images/bomb.png';
 
 // Game status and tracking
 export let appState: GameState = "landing";
@@ -127,7 +130,7 @@ export function initializeGameState(gameConfig: GameConfig, canvasWidth: number)
  */
 function loadBombImage(): void {
   bombImage = new Image();
-  bombImage.src = 'images/bomb.png';
+  bombImage.src = bombSrc;
   
   bombImage.onerror = () => {
     console.error('Error loading bomb image');
@@ -289,4 +292,4 @@ export function resetThumbProgress(): void {
  */
 export function isThumbProgressComplete(): boolean {
   return thumbUpTime >= requiredThumbTime;
-}removeAnimatingDisc
+}

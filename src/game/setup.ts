@@ -1,7 +1,14 @@
-import { GameConfig, GameDimensions } from './types';
+import { GameConfig, GameDimensions } from '../types/types';
 import { initializeGameState } from './gameState';
 import { initializeGestureRecognizer } from './gestureRecognition';
 import { initializeAudio } from './audio';
+
+// Import images directly
+import qrCodeSrc from '../assets/images/qr-code.png';
+import arteLogoSrc from '../assets/images/arte-logo.png';
+import closedHandSrc from '../assets/images/closed-hand.jpg';
+import openHandSrc from '../assets/images/open-hand.jpg';
+import peaceHandSrc from '../assets/images/peace-hand.png';
 
 // Game images
 export let qrCodeImage: HTMLImageElement | null = null;
@@ -53,7 +60,7 @@ export async function initialize(
  */
 function preloadQRCode(): void {
   qrCodeImage = new Image();
-  qrCodeImage.src = 'images/qr-code.png'; // Update this path to match your QR code image location
+  qrCodeImage.src = qrCodeSrc;
   
   qrCodeImage.onerror = () => {
     console.error('Error loading QR code image');
@@ -66,7 +73,7 @@ function preloadQRCode(): void {
  */
 function preloadArteLogo(): void {
   arteLogoImage = new Image();
-  arteLogoImage.src = 'images/arte-logo.png';
+  arteLogoImage.src = arteLogoSrc;
   
   arteLogoImage.onerror = () => {
     console.error('Error loading Arte logo image');
@@ -80,7 +87,7 @@ function preloadArteLogo(): void {
 function preloadInstructionImages(): void {
   // Closed hand image
   closedHandImage = new Image();
-  closedHandImage.src = 'images/closed-hand.jpg';
+  closedHandImage.src = closedHandSrc;
   closedHandImage.onerror = () => {
     console.error('Error loading closed hand image');
     closedHandImage = null;
@@ -88,7 +95,7 @@ function preloadInstructionImages(): void {
   
   // Open hand image
   openHandImage = new Image();
-  openHandImage.src = 'images/open-hand.jpg';
+  openHandImage.src = openHandSrc;
   openHandImage.onerror = () => {
     console.error('Error loading open hand image');
     openHandImage = null;
@@ -96,7 +103,7 @@ function preloadInstructionImages(): void {
   
   // Peace hand image
   peaceHandImage = new Image();
-  peaceHandImage.src = 'images/peace-hand.png';
+  peaceHandImage.src = peaceHandSrc;
   peaceHandImage.onerror = () => {
     console.error('Error loading peace hand image');
     peaceHandImage = null;

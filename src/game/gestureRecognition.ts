@@ -4,7 +4,7 @@ import {
   DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
-import { GameBoard, GameConfig, Player } from './types';
+import { GameBoard, GameConfig, Player } from '../types/types';
 import { getBoardStartX } from './gameLogic';
 
 let gestureRecognizer: GestureRecognizer;

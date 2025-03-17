@@ -1,3 +1,10 @@
+// Import sound files directly
+import placeSoundSrc from '../assets/sounds/place.mp3';
+import winSoundSrc from '../assets/sounds/win.mp3';
+import startSoundSrc from '../assets/sounds/start.mp3';
+import grabSoundSrc from '../assets/sounds/grab.mp3';
+import explosionSoundSrc from '../assets/sounds/bomb.mp3';
+
 // Audio elements for game sounds
 let placeSound: HTMLAudioElement | null = null;
 let winSound: HTMLAudioElement | null = null;
@@ -10,23 +17,28 @@ let explosionSound: HTMLAudioElement | null = null;
  */
 export function initializeAudio(): void {
   // Create and configure Place Sound
-  placeSound = new Audio('sounds/place.mp3');
+  placeSound = new Audio();
+  placeSound.src = placeSoundSrc;
   placeSound.volume = 0.5;
   
   // Create and configure Win Sound
-  winSound = new Audio('sounds/win.mp3');
+  winSound = new Audio();
+  winSound.src = winSoundSrc;
   winSound.volume = 0.7;
   
   // Create and configure Start Sound
-  startSound = new Audio('sounds/start.mp3');
+  startSound = new Audio();
+  startSound.src = startSoundSrc;
   startSound.volume = 0.6;
   
   // Create and configure Grab Sound
-  grabSound = new Audio('sounds/grab.mp3');
+  grabSound = new Audio();
+  grabSound.src = grabSoundSrc;
   grabSound.volume = 0.4;
   
   // Create and configure Explosion Sound
-  explosionSound = new Audio('sounds/bomb.mp3');
+  explosionSound = new Audio();
+  explosionSound.src = explosionSoundSrc;
   explosionSound.volume = 0.7;
 }
 

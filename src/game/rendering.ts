@@ -6,7 +6,7 @@ import {
   AnimatingDisc,
   WinningPosition,
   Explosion
-} from './types';
+} from '../types/types';
 
 import {
   getBoardStartX,
